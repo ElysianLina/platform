@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnglishLearn - Dashboard</title>
+    <link rel="stylesheet" href="home.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">EnglishLearn</h1>
+                <p class="tagline">Learning Platform</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="home.html" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-book-open"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item" data-page="activities">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Recommendations</span>
+                </a>
+                <a href="#" class="nav-item" data-page="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div id="dashboard-view" class="view active">
+                <div class="dashboard-header">
+                    <div>
+                        <h2 class="page-title">Dashboard</h2>
+                    </div>
+                    
+                    <div class="user-info">
+                        <span class="level-badge">CEFR Level: --</span>
+                        
+                        <!-- ============================================================
+                             ADDED: Profile container with Google-style dropdown
+                             ============================================================ -->
+                        <div class="profile-container">
+                            <!-- Avatar trigger -->
+                            <div class="user-avatar" id="profile-trigger">
+                                <img src="" alt="Profile" id="avatar-img" style="display: none;">
+                                <span id="avatar-initials">--</span>
+                            </div>
+                            
+                            <!-- ============================================================
+                                 ADDED: Google/YouTube style dropdown
+                                 Structure:
+                                 - Header: Photo + Name + Email
+                                 - Separator
+                                 - Menu items with icons
+                                 ============================================================ -->
+                            <div class="profile-dropdown" id="profile-dropdown">
+                                <!-- User info section (Google style) -->
+                                <div class="dropdown-user-info">
+                                    <div class="dropdown-avatar">
+                                        <img src="" alt="Profile" id="dropdown-avatar-img" style="display: none;">
+                                        <span id="dropdown-avatar-initials">--</span>
+                                    </div>
+                                    <div class="dropdown-user-details">
+                                        <p class="dropdown-name" id="dropdown-name">--</p>
+                                        <p class="dropdown-email" id="dropdown-email">--</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Separator -->
+                                <div class="dropdown-divider"></div>
+                                
+                                <!-- Menu options -->
+                                <div class="dropdown-menu">
+                                    <a href="#" class="dropdown-item" data-action="profile">
+                                        <div class="dropdown-item-icon">
+                                            <i class="fas fa-user-circle"></i>
+                                        </div>
+                                        <span>My Profile</span>
+                                    </a>
+                                    
+                                    <a href="#" class="dropdown-item" data-action="settings">
+                                        <div class="dropdown-item-icon">
+                                            <i class="fas fa-cog"></i>
+                                        </div>
+                                        <span>Settings</span>
+                                    </a>
+                                    
+                                    <div class="dropdown-divider"></div>
+                                    
+                                    <a href="#" class="dropdown-item logout-item" data-action="logout">
+                                        <div class="dropdown-item-icon">
+                                            <i class="fas fa-sign-out-alt"></i>
+                                        </div>
+                                        <span>Sign out</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <!-- End dropdown -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="welcome-section">
+                    <h1 class="welcome-title">Welcome!</h1>
+                    <p class="welcome-subtitle">Continue your English learning journey</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-label">CEFR Level</span>
+                            <div class="stat-icon blue">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">--</div>
+                        <div class="stat-description">Pending...</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-label">Progress</span>
+                            <div class="stat-icon green">
+                                <i class="fas fa-arrow-trend-up"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">--%</div>
+                        <div class="stat-description">Towards next level</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-label">Activities completed</span>
+                            <div class="stat-icon purple">
+                                <i class="fas fa-bullseye"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">24</div>
+                        <div class="stat-description">+3 this week</div>
+                    </div>
+                </div>
+
+               
+                 <!-- Units Section -->
+                <div class="units-section">
+                    <h2 class="section-title">Learning Units</h2>
+                    
+                   
+                </div>
+            </div>
+        </main>
+    </div>
+
+   
+
+    <script src="home.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnglishLearn - Reading Comprehension</title>
+    <link rel="stylesheet" href="comprehension-ecrite.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">EnglishLearn</h1>
+                <p class="tagline">Learning Platform</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="home.html" class="nav-item active">
+                    <i class="fas fa-book-open"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Recommendations</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <div class="page-header">
+                <a href="exercise-menu.html" class="back-btn" id="back-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </a>
+                <div class="exercise-info">
+                    <span class="exercise-type">Reading Comprehension</span>
+                    <h1 class="page-title" id="page-title">Loading...</h1>
+                </div>
+                <div class="exercise-progress">
+                    <span class="progress-text">Question <span id="current-q">1</span>/<span id="total-q">?</span></span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reading Text Section -->
+            <div class="reading-section">
+                <div class="section-header">
+                    <i class="fas fa-book-open"></i>
+                    <h2>Text to Read</h2>
+                </div>
+                <div class="reading-card">
+                    <div class="reading-text" id="reading-text">
+                        <div class="loading-message">
+                            <i class="fas fa-spinner fa-spin"></i> Loading text...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions Section -->
+            <div class="questions-section">
+                <div class="section-header">
+                    <i class="fas fa-question-circle"></i>
+                    <h2>Questions</h2>
+                </div>
+
+                <form id="exercise-form" class="questions-form">
+                    <div class="loading-message">
+                        <i class="fas fa-spinner fa-spin"></i> Loading questions...
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script src="comprehension-ecrite.js"></script>
+</body>
+</html>
