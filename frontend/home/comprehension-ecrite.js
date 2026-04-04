@@ -347,77 +347,125 @@ function showResults(result) {
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.id = 'results-modal';
-    
-    let resultsArray = Array.isArray(result.results) ? result.results : Object.values(result.results);
-    
-    // Group by type
+ 
+    let resultsArray = Array.isArray(result.results)
+        ? result.results
+        : Object.values(result.results);
+ 
+    // Grouper par type pour affichage ordonné (T/F → QCM → Fill)
     const byType = { true_false: [], multiple_choice: [], fill_blank: [] };
-    
-    currentExercise.questions.forEach((q, idx) => {
+    currentExercise.questions.forEach((q) => {
         const r = resultsArray.find(res => String(res.question_id) === String(q.id));
-        if (r) {
-            byType[q.type].push({ ...r, originalOrder: idx + 1 });
-        }
+        if (r) byType[q.type].push(r);
     });
-    
-    // Display order: true_false, multiple_choice, fill_blank
     const orderedResults = [
         ...byType.true_false,
-        ...byType.multiple_choice, 
+        ...byType.multiple_choice,
         ...byType.fill_blank
-    ];
-    
-    // Reassign numbers 1-10 in new order
-    const finalResults = orderedResults.map((r, idx) => ({
-        ...r,
-        displayNum: idx + 1
-    }));
-    
-    const resultsHtml = finalResults.map((r) => {
+    ].map((r, idx) => ({ ...r, displayNum: idx + 1 }));
+ 
+    // Sauvegarder progression si score >= 70%
+if (result.score >= 70) {
+    const subunitId = localStorage.getItem('currentSubunitId');
+    const unitId = localStorage.getItem('currentUnitId');
+    if (subunitId && unitId) {
+        const key = 'unit_' + unitId + '_sub_' + subunitId;
+        const completed = JSON.parse(localStorage.getItem('completedSubunits') || '[]');
+        if (!completed.includes(key)) {
+            completed.push(key);
+            localStorage.setItem('completedSubunits', JSON.stringify(completed));
+        }
+    }
+}
+    // Couleur du cercle selon le score
+    const scoreColor =
+        result.score >= 70 ? '#22c55e' :
+        result.score >= 50 ? '#f59e0b' : '#ef4444';
+ 
+    // Construire chaque ligne de résultat
+    const resultsHtml = orderedResults.map(r => {
         if (r.correct) {
             return `
                 <div class="result-item correct">
-                    <span class="result-num">${r.displayNum}</span>
-                    <span class="result-text">Correct - ${r.correct_answer}</span>
-                </div>
-            `;
+                    <span class="result-icon">✓</span>
+                    <div class="result-body">
+                        <span class="result-num">Q${r.displayNum}</span>
+                        <span class="result-answer-correct">${r.correct_answer}</span>
+                    </div>
+                </div>`;
         } else {
+            const feedbackBlock = r.feedback ? `
+                <div class="result-feedback">
+                    <span class="feedback-icon">💡</span>
+                    <span class="feedback-text">${r.feedback}</span>
+                </div>` : '';
+ 
             return `
                 <div class="result-item incorrect">
-                    <span class="result-num">${r.displayNum}</span>
-                    <span class="result-text">Incorrect - Correct answer: <strong>${r.correct_answer}</strong></span>
-                </div>
-            `;
+                    <span class="result-icon">✗</span>
+                    <div class="result-body">
+                        <div class="result-header-row">
+                            <span class="result-num">Q${r.displayNum}</span>
+                            <span class="result-wrong">${r.user_answer || '—'}</span>
+                            <span class="result-arrow">→</span>
+                            <span class="result-correct">${r.correct_answer}</span>
+                        </div>
+                        ${feedbackBlock}
+                    </div>
+                </div>`;
         }
     }).join('');
-    
+ 
+    // Message global (vient du backend si dispo, sinon fallback)
+    const globalMsg = result.global_feedback || (
+        result.score >= 70 ? 'Good job! Keep practicing.' :
+        result.score >= 50 ? 'Nice try! Read the text again.' :
+        "Don't give up! Try again."
+    );
+ 
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Results</h2>
+                <h2>Your Results</h2>
                 <button class="close-modal" onclick="closeResults()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="score-circle">
-                    <span class="score-number">${result.score}</span>%
+                <div class="score-circle" style="background:${scoreColor};">
+                    <div>
+                        <span class="score-number">${result.correct_count}</span>
+                        <span class="score-total">/${result.total}</span>
+                    </div>
                 </div>
-                <p>${result.correct_count}/${result.total} correct</p>
-                <div class="results-list">${resultsHtml}</div>
+                <p class="score-message">${globalMsg}</p>
+                <p class="score-percent">${result.score}%</p>
+                <div class="results-details">
+                    <h4>Question Details</h4>
+                    ${resultsHtml}
+                </div>
                 <div class="modal-actions">
-                    <button class="btn-secondary" onclick="closeResults()">Try Again</button>
-                    <a href="home.html" class="btn-primary">Home</a>
+                   <button class="btn-secondary" onclick="closeResults()">
+                        <i class="fas fa-redo"></i> Try Again
+                   </button>
+                   <button class="btn-practice" onclick="startPractice()">
+                        <i class="fas fa-bolt"></i> Practice More
+                   </button>
+                   <a href="/frontend/home/home.html" class="btn-primary">
+                        <i class="fas fa-home"></i> Home
+                   </a>
                 </div>
             </div>
-        </div>
-    `;
-    
+        </div>`;
+ 
     document.body.appendChild(modal);
-    
+ 
+    // Colorier les cartes de questions dans la page
     resultsArray.forEach(r => {
-        const card = document.querySelector(`[data-question-id="${r.question_id}"]`)?.closest('.question-card');
+        const card = document.querySelector(`[data-question-id="${r.question_id}"]`)
+            ?.closest('.question-card');
         if (card) card.classList.add(r.correct ? 'correct' : 'incorrect');
     });
 }
+ 
 function closeResults() {
     const modal = document.getElementById('results-modal');
     if (modal) modal.remove();
@@ -459,4 +507,82 @@ function showNotification(message) {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+async function startPractice() {
+    if (!currentExercise) return;
+ 
+    const exerciseId = currentExercise.text.id;
+    const learnerId  = localStorage.getItem('learner_id');
+ 
+    // 1. Fermer la modal de résultats
+    closeResults();
+ 
+    // 2. Afficher un loading dans la page (remplace le texte et les questions)
+    const readingContainer   = document.getElementById('reading-text');
+    const questionsContainer = document.querySelector('.questions-form');
+ 
+    readingContainer.innerHTML = `
+        <div class="practice-loading">
+            <div class="practice-loading-spinner"></div>
+            <p class="practice-loading-title">Generating your practice text...</p>
+            <p class="practice-loading-sub">Our AI is creating a new exercise just for you ✨</p>
+        </div>
+    `;
+    questionsContainer.innerHTML = '';
+ 
+    // 3. Appel API — génération GAI
+    try {
+        const response = await fetch('http://localhost:8000/api/generate-practice/', {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({
+                exercise_id: exerciseId,
+                learner_id : learnerId,
+            }),
+        });
+ 
+        const data = await response.json();
+ 
+        if (data.success && data.exercise) {
+            // 4. Mettre à jour currentExercise et afficher le nouveau contenu
+            currentExercise = data.exercise;
+ 
+            // Mettre à jour le titre de la page
+            const pageTitleEl = document.getElementById('page-title');
+            if (pageTitleEl) pageTitleEl.textContent = data.exercise.subunit.title;
+ 
+            // Mettre à jour le compteur de questions
+            const totalEl = document.getElementById('total-q');
+            if (totalEl) totalEl.textContent = data.exercise.total_questions;
+ 
+            // Réinitialiser la barre de progression
+            const progressFill = document.getElementById('progress-fill');
+            if (progressFill) progressFill.style.width = '0%';
+            const currentQ = document.getElementById('current-q');
+            if (currentQ) currentQ.textContent = '1';
+ 
+            // Afficher le nouveau contenu (même fonction existante)
+            renderExercise(data.exercise);
+ 
+            // Notification de succès
+            showNotification('✨ New practice text ready!');
+        } else {
+            throw new Error(data.error || 'Generation failed');
+        }
+ 
+    } catch (error) {
+        console.error('Practice generation error:', error);
+ 
+        // Afficher message d'erreur dans la zone de lecture
+        readingContainer.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                Unable to generate practice text.<br>
+                <small>${error.message}</small><br>
+                <button onclick="location.reload()" style="margin-top:10px;padding:8px 16px;cursor:pointer;">
+                    Reload page
+                </button>
+            </div>
+        `;
+    }
 }
