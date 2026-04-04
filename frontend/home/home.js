@@ -122,11 +122,8 @@ function renderUnits(units) {
             console.log(`  → SINGLE SUBUNIT: ${sub.title}, linking directly to exercise-menu.html`);
             
             html += `
-                <a href="exercise-menu.html?subunit=${sub.code}&title=${encodeURIComponent(sub.title)}&subunit_id=${sub.id}" 
-                   class="unit-card single-subunit" 
-                   onclick="localStorage.setItem('currentSubunitId', '${sub.id}')"
-                   style="text-decoration: none; color: inherit; display: block;">
-                    <div class="unit-header" style="cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+<a href="/frontend/home/exercise-menu.html?subunit=${sub.code}&title=${encodeURIComponent(sub.title)}&subunit_id=${sub.id}"                   class="unit-card single-subunit" 
+onclick="localStorage.setItem('currentSubunitId', '${sub.id}'); localStorage.setItem('currentUnitId', '${unit.id}')">                    <div class="unit-header" style="cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                         <div class="unit-info">
                             <div class="unit-icon" style="background: rgba(255,255,255,0.2); color: white;">${unitNumber}</div>
                             <div class="unit-details">
@@ -153,9 +150,9 @@ function renderUnits(units) {
         }
         
         const subunitsHtml = visibleSubunits.map(sub => `
-            <a href="exercise-menu.html?subunit=${sub.code}&title=${encodeURIComponent(sub.title)}&subunit_id=${sub.id}" 
+            <a href="/frontend/home/exercise-menu.html?subunit=${sub.code}&title=${encodeURIComponent(sub.title)}&subunit_id=${sub.id}" 
                class="subunit-card"
-               onclick="localStorage.setItem('currentSubunitId', '${sub.id}')">
+               onclick="localStorage.setItem('currentSubunitId', '${sub.id}'); localStorage.setItem('currentUnitId', '${unit.id}')">
                 <div class="subunit-icon">
                     <i class="fas fa-${getIconForSubunit(sub.order)}"></i>
                 </div>
@@ -180,7 +177,7 @@ function renderUnits(units) {
                         </div>
                     </div>
                     <div class="unit-meta">
-                        <span class="progress-badge">0/${visibleSubunits.length} completed</span>
+                        <span class="progress-badge" id="badge-${unit.id}">${getCompletedCount(unit.id, visibleSubunits)}/${visibleSubunits.length} completed</span>
                         <i class="fas fa-chevron-down unit-arrow"></i>
                     </div>
                 </div>
@@ -394,11 +391,11 @@ async function logout() {
         localStorage.removeItem('learner_progress');
         localStorage.removeItem('currentSubunitId');
         
-        window.location.href = '../authentification/login.html';
+        window.location.href = '/frontend/authentification/login.html';
     } catch (error) {
         console.error('Network error:', error);
         localStorage.clear();
-        window.location.href = '../authentification/login.html';
+        window.location.href = '/frontend/authentification/login.html';
     }
 }
 
@@ -460,4 +457,11 @@ function showNotification(message) {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+
+function getCompletedCount(unitId, subunits) {
+    const completed = JSON.parse(localStorage.getItem('completedSubunits') || '[]');
+    return subunits.filter(sub => 
+        completed.includes('unit_' + unitId + '_sub_' + sub.id)
+    ).length;
 }
