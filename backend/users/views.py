@@ -7,6 +7,8 @@ from .forms import RegisterForm
 from .models import Learner , Unit, SubUnit, ReadingText, ReadingQuestion
 from django.contrib.auth.hashers import check_password
 from django.db.models import Exists, OuterRef 
+from scripts.feedback_service import generate_feedback, generate_global_feedback
+from scripts.generate_practice_text import generate_and_save_practice
 # ============================================================
 # NOUVEAU : Vue pour servir la page d'accueil (home.html)
 # Cette vue permet d'accéder à home.html via le serveur Django
@@ -19,7 +21,7 @@ def home_view(request):
     # Chemin absolu vers le fichier home.html
     # On remonte de 3 niveaux : users/views.py -> users/ -> backend/ -> PLATFORM/ -> frontend/home/
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    home_path = os.path.join(current_dir, '..', '..', '..', 'frontend', 'home', 'home.html')
+    home_path = os.path.join(current_dir, '..', '..', 'frontend', 'home', 'home.html')
     home_path = os.path.normpath(home_path)  # Normalise le chemin
     
     # Vérifier que le fichier existe
@@ -27,6 +29,13 @@ def home_view(request):
         return FileResponse(open(home_path, 'rb'))
     else:
         return HttpResponse(f"Fichier home.html non trouvé à : {home_path}", status=404)
+
+def serve_frontend(request, filename, folder='home'):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.normpath(os.path.join(current_dir, '..', '..', 'frontend', folder, filename))
+    if os.path.exists(file_path):
+        return FileResponse(open(file_path, 'rb'))
+    return HttpResponse(f"Fichier {filename} non trouvé", status=404)
 
 @csrf_exempt
 def login_api(request):
@@ -529,24 +538,60 @@ def get_reading_exercise_api(request):
     }, status=405)
 
 
+
+
 @csrf_exempt
 def submit_exercise_api(request):
     """
-    API pour soumettre les réponses et les corriger
+    API pour soumettre les réponses, les corriger ET générer un feedback GAI.
+
+    POST /api/submit-exercise/
+    Body JSON :
+    {
+        "exercise_id": 42,
+        "answers": { "question_id": "valeur", ... },
+        "learner_id": "1"   (optionnel)
+    }
+
+    Réponse JSON :
+    {
+        "success": true,
+        "score": 70,
+        "correct_count": 7,
+        "total": 10,
+        "global_feedback": "Good job! ...",
+        "results": [
+            {
+                "question_id": "1",
+                "correct": true,
+                "user_answer": "True",
+                "correct_answer": "True",
+                "feedback": null
+            },
+            {
+                "question_id": "2",
+                "correct": false,
+                "user_answer": "B. sad",
+                "correct_answer": "A. happy",
+                "feedback": "The text says Ana is happy with her family. 'Happy' means feeling good and joyful."
+            }
+        ]
+    }
     """
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
+            data        = json.loads(request.body)
             exercise_id = data.get('exercise_id')
-            answers = data.get('answers', {})
-            learner_id = data.get('learner_id')
-            
+            answers     = data.get('answers', {})
+            learner_id  = data.get('learner_id')
+
             if not exercise_id or not answers:
                 return JsonResponse({
                     'success': False,
                     'error': 'Données manquantes'
                 }, status=400)
-            
+
+            # ── 1. Charger le texte ───────────────────────────────────
             try:
                 reading_text = ReadingText.objects.get(id=exercise_id)
             except ReadingText.DoesNotExist:
@@ -554,92 +599,235 @@ def submit_exercise_api(request):
                     'success': False,
                     'error': 'Exercice non trouvé'
                 }, status=404)
-            
-            results = []
+
+            # ── 2. Récupérer le niveau de l'apprenant ─────────────────
+            learner_level = "A1"  # niveau par défaut
+            if learner_id:
+                try:
+                    learner       = Learner.objects.get(learner_id=learner_id)
+                    learner_level = learner.cefr_level
+                except Learner.DoesNotExist:
+                    pass
+
+            # ── 3. Corriger chaque réponse ────────────────────────────
+            results       = []
+            wrong_answers = []   # pour le feedback GAI
             correct_count = 0
-            total = len(answers)
-            
+            total         = len(answers)
+
             for question_id, user_answer in answers.items():
                 try:
-                    question = ReadingQuestion.objects.get(id=question_id, text=reading_text)
-                    
-                    correct = False
-                    user_ans = str(user_answer).strip()
+                    question  = ReadingQuestion.objects.get(id=question_id, text=reading_text)
+                    user_ans  = str(user_answer).strip()
                     correct_ans = str(question.answer).strip()
-                    
-                    # Variables pour l'affichage
-                    correct_answer_display = correct_ans  # Par défaut: valeur brute
-                    user_answer_display = user_ans
-                    
+
+                    correct                = False
+                    correct_answer_display = correct_ans
+                    user_answer_display    = user_ans
+
+                    # ── Correction selon le type ──────────────────────
                     if question.type == 'true_false':
-                        # Comparer true/false (insensible à la casse)
-                        correct = user_ans.lower() == correct_ans.lower()
-                        # Formater pour l'affichage
-                        correct_answer_display = "Vrai" if correct_ans.lower() == 'true' else "Faux"
-                        user_answer_display = "Vrai" if user_ans.lower() == 'true' else "Faux"
-                        
+                        correct                = user_ans.lower() == correct_ans.lower()
+                        correct_answer_display = "True" if correct_ans.lower() == 'true' else "False"
+                        user_answer_display    = "True" if user_ans.lower() == 'true' else "False"
+
                     elif question.type == 'multiple_choice':
                         letter_map = {'a': 0, 'b': 1, 'c': 2, 'd': 3}
-                        
-                        # Traiter la réponse de l'utilisateur
                         if question.choices and user_ans.lower() in letter_map:
-                            idx = letter_map[user_ans.lower()]
+                            idx        = letter_map[user_ans.lower()]
                             if idx < len(question.choices):
-                                user_value = question.choices[idx].strip()
+                                user_value          = question.choices[idx].strip()
                                 user_answer_display = f"{user_ans.upper()}. {user_value}"
-                                # Comparer avec la réponse attendue
-                                correct = user_value.lower() == correct_ans.lower()
+                                correct             = user_value.lower() == correct_ans.lower()
                         else:
                             correct = user_ans.lower() == correct_ans.lower()
-                        
-                        # Trouver la lettre de la bonne réponse
+
                         if question.choices:
                             for idx, choice in enumerate(question.choices):
                                 if choice.strip().lower() == correct_ans.lower():
-                                    letter = chr(97 + idx)  # 0->a, 1->b, etc.
+                                    letter                 = chr(97 + idx)
                                     correct_answer_display = f"{letter.upper()}. {choice.strip()}"
                                     break
-                        
+
                     else:  # fill_blank
-                        # Comparaison insensible à la casse
-                        correct = user_ans.lower() == correct_ans.lower()
+                        correct                = user_ans.lower() == correct_ans.lower()
                         correct_answer_display = correct_ans
-                    
+
                     if correct:
                         correct_count += 1
-                    
-                    results.append({
-                        'question_id': question_id,
-                        'correct': correct,
-                        'user_answer': user_answer_display,  # Formaté: "B. Lyon"
-                        'correct_answer': correct_answer_display  # Formaté: "B. Lyon"
-                    })
-                    
+
+                    result_item = {
+                        'question_id'   : question_id,
+                        'correct'       : correct,
+                        'user_answer'   : user_answer_display,
+                        'correct_answer': correct_answer_display,
+                        'feedback'      : None,    # sera rempli par la GAI
+                    }
+                    results.append(result_item)
+
+                    # Préparer pour le feedback GAI si mauvaise réponse
+                    if not correct:
+                        wrong_answers.append({
+                            'question_id'    : question_id,
+                            'question'       : question.question,
+                            'type'           : question.type,
+                            'learner_answer' : user_answer_display,
+                            'correct_answer' : correct_answer_display,
+                        })
+
                 except ReadingQuestion.DoesNotExist:
                     continue
-            
-            score = round((correct_count / total) * 100) if total > 0 else 0
-            
+
+            # ── 4. Appel GAI : feedback pour les erreurs ──────────────
+            if wrong_answers:
+                try:
+                    ai_feedbacks = generate_feedback(
+                        text_content  = reading_text.content,
+                        wrong_answers = wrong_answers,
+                        learner_level = learner_level,
+                    )
+                    # Injecter les feedbacks dans les résultats
+                    for item in results:
+                        fb = ai_feedbacks.get(str(item['question_id']))
+                        if fb:
+                            item['feedback'] = fb
+                except Exception as e:
+                    # Si Groq indisponible → on continue sans feedback (dégradé gracieux)
+                    print(f"⚠️  Feedback GAI indisponible: {e}")
+
+            # ── 5. Score + message global ─────────────────────────────
+            score         = round((correct_count / total) * 100) if total > 0 else 0
+            global_msg    = generate_global_feedback(score, learner_level)
+
             return JsonResponse({
-                'success': True,
-                'score': score,
-                'correct_count': correct_count,
-                'total': total,
-                'results': results
+                'success'        : True,
+                'score'          : score,
+                'correct_count'  : correct_count,
+                'total'          : total,
+                'global_feedback': global_msg,
+                'results'        : results,
             })
-            
+
         except json.JSONDecodeError:
             return JsonResponse({
                 'success': False,
-                'error': 'Données JSON invalides'
+                'error'  : 'Données JSON invalides'
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error'  : str(e)
             }, status=500)
-    
+
     return JsonResponse({
         'success': False,
-        'error': 'Méthode non autorisée'
+        'error'  : 'Méthode non autorisée'
     }, status=405)
+    
+@csrf_exempt
+def generate_practice_api(request):
+    """
+    POST /api/generate-practice/
+ 
+    Génère un nouveau texte de pratique GAI du même thème
+    que le texte original, avec 10 nouvelles questions.
+    Sauvegarde tout en base et retourne l'exercice complet.
+ 
+    Body JSON :
+    {
+        "exercise_id" : 42,       ← id du ReadingText original
+        "learner_id"  : "1"       ← optionnel, pour récupérer le niveau
+    }
+ 
+    Réponse JSON (même format que get_reading_exercise_api) :
+    {
+        "success": true,
+        "generated": true,
+        "exercise": {
+            "subunit": { "id": ..., "title": ..., "unit_title": ... },
+            "text":    { "id": ..., "topic": ..., "content": ... },
+            "questions": [ { "id", "number", "question", "type", "choices", "answer" } ],
+            "total_questions": 10
+        }
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
+ 
+    try:
+        data        = json.loads(request.body)
+        exercise_id = data.get('exercise_id')
+        learner_id  = data.get('learner_id')
+ 
+        if not exercise_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'exercise_id manquant'
+            }, status=400)
+ 
+        # ── 1. Charger le texte original ──────────────────────────
+        try:
+            original_text = ReadingText.objects.get(id=exercise_id)
+        except ReadingText.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Texte original non trouvé'
+            }, status=404)
+ 
+        # ── 2. Récupérer le niveau de l'apprenant ─────────────────
+        learner_level = original_text.sub_unit.unit.level  # niveau de l'unité par défaut
+        if learner_id:
+            try:
+                learner       = Learner.objects.get(learner_id=learner_id)
+                learner_level = learner.cefr_level
+            except Learner.DoesNotExist:
+                pass
+ 
+        # ── 3. Générer + sauvegarder le nouveau texte (GAI) ───────
+        new_text_id = generate_and_save_practice(
+            original_text = original_text,
+            learner_level = learner_level,
+        )
+ 
+        # ── 4. Charger le nouveau texte depuis la base ─────────────
+        new_text  = ReadingText.objects.get(id=new_text_id)
+        questions = new_text.questions.all().order_by('id')
+ 
+        questions_data = [
+            {
+                'id'      : q.id,
+                'number'  : idx,
+                'question': q.question,
+                'type'    : q.type,
+                'choices' : q.choices or [],
+                'answer'  : q.answer,
+            }
+            for idx, q in enumerate(questions, 1)
+        ]
+ 
+        subunit = new_text.sub_unit
+ 
+        return JsonResponse({
+            'success'  : True,
+            'generated': True,
+            'exercise' : {
+                'subunit': {
+                    'id'        : subunit.id,
+                    'title'     : subunit.title,
+                    'unit_title': subunit.unit.title,
+                },
+                'text': {
+                    'id'     : new_text.id,
+                    'topic'  : new_text.topic,
+                    'content': new_text.content,
+                },
+                'questions'      : questions_data,
+                'total_questions': len(questions_data),
+            }
+        })
+ 
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        print(f"❌  generate_practice_api error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)    
